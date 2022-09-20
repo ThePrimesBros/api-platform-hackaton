@@ -1,6 +1,10 @@
 version: "3.4"
 
 services:
+  mailer:
+    image: schickling/mailcatcher
+    ports: [ 1025, 1080 ]
+  
   php:
     build:
       context: ./api
