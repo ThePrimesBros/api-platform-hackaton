@@ -14,7 +14,11 @@ use Doctrine\Common\Collections\Collection;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Gedmo\Mapping\Annotation\Blameable;
+use Symfony\Bridge\Doctrine\Validator\Constraints\UniqueEntity;
 use Symfony\Component\Serializer\Annotation\Groups;
+use Symfony\Component\Validator\Constraints\Length;
+use Symfony\Component\Validator\Constraints\NotBlank;
+use Symfony\Component\Validator\Constraints\Type;
 
 #[ApiResource(
     normalizationContext: ['groups' => ['hackaton:readOne']], // Normalization par défaut
@@ -22,25 +26,27 @@ use Symfony\Component\Serializer\Annotation\Groups;
 )]
 #[Get(
     description: 'Get a hackaton',
+    security: 'is_granted("ROLE_COACH") or object.getParticipants().contains(user)',
 )]
 #[GetCollection(
     description: 'Get all hackatons',
     normalizationContext: ['groups' => ['hackaton:readAll']],
-    security: 'is_granted("ROLE_COACH")',
+    security: 'is_granted("ROLE_USER")',
 )]
 #[Post(
     description: 'Create a hackaton',
-    security: 'is_granted("ROLE_COACH")',
+    security: 'is_granted("ROLE_COACH") or object.getParticipants().contains(user)',
 )]
 #[Patch(
     description: 'Update a hackaton',
-    security: 'is_granted("ROLE_COACH")',
+    security: 'is_granted("ROLE_COACH") or object.getParticipants().contains(user)',
 )]
 #[Delete(
     description: 'Delete a hackaton',
-    security: 'is_granted("ROLE_ADMIN" or object.owner == user)',
+    security: 'is_granted("ROLE_ADMIN")',
 )]
 #[ORM\Entity(repositoryClass: HackatonRepository::class)]
+#[UniqueEntity('name')]
 class Hackaton
 {
     #[ORM\Id]
@@ -50,18 +56,25 @@ class Hackaton
 
     #[Groups(['hackaton:readOne', 'hackaton:readAll', 'hackaton:write'])]
     #[ORM\Column(length: 255)]
+    #[NotBlank(message: 'Le nom du hackaton est obligatoire')]
+    #[Length(min: 3, max: 255, minMessage: 'Le nom du hackaton doit faire au moins {{ limit }} caractères', maxMessage: 'Le nom du hackaton doit faire au plus {{ limit }} caractères')]
+    #[Type(type: 'string', message: 'Le nom du hackaton doit être une chaîne de caractères')]
     private ?string $name = null;
 
     #[Groups(['hackaton:readOne', 'hackaton:readAll', 'hackaton:write'])]
     #[ORM\Column(length: 255)]
+    #[NotBlank(message: 'Le nom du client est obligatoire')]
     private ?string $customer = null;
 
     #[Groups(['hackaton:readOne', 'hackaton:readAll', 'hackaton:write'])]
     #[ORM\Column(type: Types::DATE_MUTABLE)]
+    #[NotBlank(message: 'La date de début est obligatoire')]
+    #[Type(type: 'DateTime', message: 'La date de début doit être une date')]
     private ?\DateTimeInterface $startDate = null;
 
     #[Groups(['hackaton:readOne', 'hackaton:readAll', 'hackaton:write'])]
     #[ORM\Column(type: Types::DATE_MUTABLE)]
+    #[Type(type: 'DateTime', message: 'La date de fin doit être une date')]
     private ?\DateTimeInterface $endDate = null;
 
     #[Groups(['hackaton:readOne'])]
@@ -76,11 +89,13 @@ class Hackaton
     #[ORM\OneToMany(mappedBy: 'hackaton', targetEntity: Event::class, orphanRemoval: true)]
     private Collection $events;
 
+    #[Groups(['hackaton:readOne'])]
     #[ORM\ManyToMany(targetEntity: User::class, inversedBy: 'hackatons')]
     private Collection $participants;
 
     #[Blameable(on: 'create')]
     #[ORM\ManyToOne(inversedBy: 'hackatonsCreated')]
+    #[NotBlank(message: 'Le créateur est obligatoire')]
     private ?User $owner = null;
 
     public function __construct()

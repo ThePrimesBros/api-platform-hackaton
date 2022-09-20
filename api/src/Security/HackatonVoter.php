@@ -6,28 +6,29 @@ use App\Entity\Hackaton;
 use App\Entity\User;
 use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
 use Symfony\Component\Security\Core\Authorization\Voter\Voter;
+use Symfony\Component\Security\Core\Security;
 
 class HackatonVoter extends Voter
 {
-
     const VIEW = 'view';
     const EDIT = 'edit';
     const DELETE = 'delete';
-    /**
-     * @inheritDoc
-     */
+
     protected function supports(string $attribute, mixed $subject): bool
     {
-        // only vote on `Post` objects
-        if (!$subject instanceof Hackaton) {
-            return false;
-        }
+        $supportsAttribute = in_array($attribute, [self::VIEW, self::EDIT, self::DELETE]);
+        $supportsSubject = $subject instanceof Hackaton;
 
+        dump($supportsAttribute, $supportsSubject);
+        //return $supportsAttribute && $supportsSubject;
         return true;
     }
 
     /**
-     * @inheritDoc
+     * @param string $attribute
+     * @param Hackaton $subject
+     * @param TokenInterface $token
+     * @return bool
      */
     protected function voteOnAttribute(string $attribute, mixed $subject, TokenInterface $token): bool
     {
@@ -38,15 +39,13 @@ class HackatonVoter extends Voter
             return false;
         }
 
-        // you know $subject is a Post object, thanks to `supports()`
-        /** @var Hackaton $hackaton */
-        $hackaton = $subject;
-
         switch ($attribute) {
             case self::VIEW:
-                return $this->canViewHackaton($hackaton, $user);
+                return $this->canViewHackaton($subject, $user);
+            case self::DELETE:
+                return $this->canDeleteHackaton($subject, $user);
             case self::EDIT:
-                return $this->canDeleteHackaton($hackaton, $user);
+                return $this->canEditHackaton($subject, $user);
         }
     }
 
@@ -57,6 +56,11 @@ class HackatonVoter extends Voter
 
     private function canViewHackaton(Hackaton $hackaton, User $user): bool
     {
-        return $user->getRoles() === ['ROLE_COACH'] || $hackaton->getOwner() === $user;
+        return $user->getRoles() === ['ROLE_COACH'] || $user->getRoles() === ['ROLE_ADMIN'] || $hackaton->getOwner() === $user;
+    }
+
+    private function canEditHackaton(Hackaton $hackaton, User $user): bool
+    {
+        return $user->getRoles() === ['ROLE_COACH'] || $user->getRoles() === ['ROLE_ADMIN'] || $hackaton->getOwner() === $user;
     }
 }
